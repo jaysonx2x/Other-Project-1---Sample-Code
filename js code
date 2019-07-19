@@ -1,0 +1,52 @@
+function checkPaymentStatus(checkInID, status) {
+    
+    _fnShowAJAXLoader();
+    
+    $.ajax({
+        type: 'POST',
+        data: { 
+            RESERVATIONS_ID : checkInID
+        },
+        dataType: 'json',
+        url: SITE_URL + 'CheckIns/getCheckInPaymentStatus'
+    })
+    .done(function(data) {
+        
+        // console.log(data);
+
+        if(data.status) {
+            
+            var param = checkInID + ',' + status;
+    
+            var condition = getReservationStatus(status);
+
+            _fnShowConfirmMessageDlg('Confirm', 'Do you want to update this record as '+condition+'?', activateDactivateReservation, null, param);
+            
+        } else {
+            _fnShowNotification('Failed', 'Opps! Customer\'s bill is not yet fully paid.');
+        }
+        
+        _fnHideAJAXLoader();
+        
+    });
+    
+}
+
+function confirmActivateDeactivateRecord(checkInID, status) {
+    
+    var param = checkInID + ',' + status;
+    
+    var condition = getReservationStatus(status);
+    
+    /* Before check out, check if payment is fully paid */
+    if(parseInt(status) === 3) {
+        
+        checkPaymentStatus(checkInID, status);
+        
+    } else {
+        
+        _fnShowConfirmMessageDlg('Confirm', 'Do you want to update this record as '+condition+'?', activateDactivateReservation, null, param);
+        
+    }
+    
+}

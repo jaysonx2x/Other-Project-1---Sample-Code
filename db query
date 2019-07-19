@@ -1,0 +1,27 @@
+public function loadDatatableReservations($status=NULL)
+{
+    if ($status === NULL) { return FALSE; }
+
+    $this->load->library('Datatables');
+
+    $status = intval(dt_decode($status, 3));
+
+    $column = '';
+
+    $flds = 'r.ID, r.RESERVATION_DATE, CONCAT(c.LASTNAME, ", ", c.FIRSTNAME), CONCAT(rm.ROOM_NO, " <br/> ", rm.DESCRIPTION) AS ROOM, CONCAT(r.CHECK_IN, ",", r.CHECK_OUT) AS DURATION, ';
+    $flds.= 'r.NO_OF_GUESTS, CONCAT(c.EMAIL_ADDRESS, " ", c.CONTACT_NO) as CONTACT, r.STATUS, b.STATUS AS BILLING_STATUS';
+
+    (intval($status) !== 255) ? $this->datatables->where('r.STATUS = ' . intval($status)) : '';
+
+    $this->datatables
+        ->select($flds, FALSE)
+        ->from($this->_table . ' r')
+        ->join(TBL_ROOMS . ' rm'        , 'rm.ID = r.ROOMS_ID')
+        ->join(TBL_CUSTOMERS . ' c'     , 'c.ID  = r.CUSTOMERS_ID')
+//            ->join(TBL_PAYMENTS . ' p'      , 'r.ID  = p.RESERVATIONS_ID')
+        ->join(TBL_BILLINGS . ' b'      , 'r.ID  = b.RESERVATIONS_ID')
+        ->add_column('Action', $column, 'r.ID');
+
+    echo $this->datatables->generate();
+
+}

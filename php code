@@ -1,0 +1,83 @@
+function saveReservation() 
+    {
+        $result = array();
+        
+        $reservation_id = intval($this->input->post('ID'));
+        
+        $validatedCustomer    = $this->customer->_validateCustomer();
+        $validatedReservation = $this->_validateReservation();
+        
+        // TODO: Check dates for reservation to avoid conflict
+        
+        if($validatedCustomer and $validatedReservation)
+        {
+            $result['customer'] = $this->customer->addEditCustomer();
+
+            if($result['customer'])
+            {
+                $post = $this->input->post();
+                
+                $_POST['CHECK_IN']  = trim($post['CHECK_IN']) . ' 14:00:00';
+                $_POST['CHECK_OUT'] = trim($post['CHECK_OUT']) . ' 13:00:00';
+                
+                $result['reservation'] = $this->reservation->addEditReservation($result['customer'], STATUS_RSRV_CONFIRMED);
+                
+                if($result['reservation']) 
+                {
+                    $_POST['CUSTOMERS_ID']  = intval($result['customer']);
+                    
+                    $result['billing'] = $this->billing->addEditBilling($result['reservation'], $post);
+                    
+                    if (array_key_exists('PAYMENT_STATUS', $post) and intval($post['PAYMENT_STATUS']) === STATUS_PAYMENT_PARTIAL) // Partial and Full Payment
+                    { 
+                        $_POST['TOTAL'] = $post['AMOUNT'];
+                        $result['payment_history'] = $this->payment_hist->addEditPaymentHistory($result['billing']);
+                    }
+                    
+                }
+                
+                $room_rec        = (array) $this->room->getInfoRoom($this->input->post('ROOMS_ID'));
+                $reservation_rec = (array) $this->reservation->getInfoReservation($result['reservation']);
+
+                $check_in     = new DateTime($reservation_rec['CHECK_IN']);
+                $check_out    = new DateTime($reservation_rec['CHECK_OUT']);
+
+                $diff = $check_in->diff($check_out);
+                $totalDays = intval($diff->format('%a'));
+
+                // Create notification
+                $notification_data['NOTIFICATION_DATE'] = fn_get_current_date();
+                $notification_data['DESCRIPTION'] = '[RESERVATION] ' . $room_rec['ROOM_NO'] . ' ' 
+                    . fn_format_date($reservation_rec['CHECK_IN'], 'm/d/Y') . '-' . fn_format_date($reservation_rec['CHECK_OUT'], 'm/d/Y')
+                    . ' (' . $post['NO_OF_DAYS'] . ' day/s).';
+
+                $notification_data['TYPE'] = 1;
+                $notification_data['NOTIFICATION_LINK'] = 'Billings/index/' . dt_encode($reservation_rec['ID'],3);
+                $notification_data['NOTIFIER'] = $this->nixsession->get(SESS_PROFILE_ID);
+
+                $this->notification->createNotification($notification_data);
+                
+                
+                $this->data['body_content'] = 'Reservation is successfully ' . (($reservation_id>0) ? 'updated' : 'created') . '.';
+                
+                $this->data['action_btn'][] = '<a href="' . base_url('Reservations') . '" class="btn btn-danger" > <i class="fa fa-list"></i> View Reservation</a>';
+                $this->data['action_btn'][] = '<a href="' . base_url('Reservations/ReservationForm') . '" class="btn btn-success"> <i class="fa fa-plus"></i> New Reservation</a>';
+                
+                $this->template
+                        ->title(APP_ALIAS, 'Success')
+                        ->set_layout('landing')
+                        ->build('web/layouts/system_msg', $this->data);
+                        
+            } else {
+
+                show_error('Cannot create reservation.');
+                
+            }
+            
+        } else {
+            
+            $this->ReservationForm();
+            
+        }
+        
+    }
